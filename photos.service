@@ -1,0 +1,18 @@
+[Unit]
+Description=photos.local - Google Photos E-Ink Frame
+After=network.target NetworkManager.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/pi/photos
+ExecStart=/home/pi/photos/venv/bin/python /home/pi/photos/app.py
+Restart=always
+RestartSec=5
+Environment=FLASK_ENV=production
+
+# Grant access to GPIO and display hardware
+SupplementaryGroups=gpio spi i2c video
+
+[Install]
+WantedBy=multi-user.target

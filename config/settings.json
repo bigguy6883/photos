@@ -1,0 +1,20 @@
+{
+  "wifi": {
+    "ssid": "",
+    "configured": false
+  },
+  "google": {
+    "authenticated": false,
+    "albums": []
+  },
+  "display": {
+    "orientation": "horizontal",
+    "fit_mode": "contain"
+  },
+  "slideshow": {
+    "order": "random",
+    "interval_minutes": 60,
+    "enabled": true,
+    "current_index": 0
+  }
+}
