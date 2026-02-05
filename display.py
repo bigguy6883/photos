@@ -281,25 +281,25 @@ def generate_info_screen(photo_count=0, wifi_status="Unknown", google_status=Fal
         font_medium = font_large
         font_small = font_large
 
-    # Draw text info
-    text_x = qr_size + 60
-    text_y = 30
+    # Draw text info - leave margin from QR code
+    text_x = qr_size + 40
+    text_y = 20
 
     # Title
     if ap_mode:
         draw.text((text_x, text_y), "Setup Mode", font=font_large, fill=(0, 0, 0))
-        text_y += 60
-        draw.text((text_x, text_y), "Connect to WiFi:", font=font_medium, fill=(0, 0, 0))
-        text_y += 40
-        draw.text((text_x, text_y), "photos-setup", font=font_large, fill=(0, 100, 200))
         text_y += 55
-        draw.text((text_x, text_y), "Password: photoframe", font=font_small, fill=(100, 100, 100))
-        text_y += 40
-        draw.text((text_x, text_y), "Then visit:", font=font_medium, fill=(0, 0, 0))
-        text_y += 40
-        draw.text((text_x, text_y), "http://192.168.4.1/", font=font_medium, fill=(0, 100, 200))
-        text_y += 45
-        draw.text((text_x, text_y), "Or scan QR code", font=font_small, fill=(100, 100, 100))
+        draw.text((text_x, text_y), "1. Connect to WiFi:", font=font_small, fill=(0, 0, 0))
+        text_y += 30
+        draw.text((text_x + 20, text_y), "photos-setup", font=font_medium, fill=(0, 100, 200))
+        text_y += 38
+        draw.text((text_x + 20, text_y), "Password: photoframe", font=font_small, fill=(100, 100, 100))
+        text_y += 35
+        draw.text((text_x, text_y), "2. Open browser:", font=font_small, fill=(0, 0, 0))
+        text_y += 30
+        draw.text((text_x + 20, text_y), "http://192.168.4.1", font=font_small, fill=(0, 100, 200))
+        text_y += 35
+        draw.text((text_x, text_y), "Or scan QR to connect", font=font_small, fill=(100, 100, 100))
     else:
         draw.text((text_x, text_y), "photos.local", font=font_large, fill=(0, 0, 0))
         text_y += 70
