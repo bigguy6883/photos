@@ -26,6 +26,8 @@ MOCK_DISPLAY_PATH = DATA_DIR / "mock_display.png"
 
 # Display state
 _display = None
+_actual_width = DISPLAY_WIDTH
+_actual_height = DISPLAY_HEIGHT
 _busy = False
 _busy_lock = threading.Lock()
 
@@ -44,13 +46,14 @@ class MockDisplay:
 
     def show(self):
         if hasattr(self, '_img') and self._img:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
             self._img.save(str(MOCK_DISPLAY_PATH))
             print(f"MockDisplay: saved to {MOCK_DISPLAY_PATH}")
 
 
 def get_display():
     """Get or initialize display (real Inky or MockDisplay)"""
-    global _display
+    global _display, _actual_width, _actual_height
 
     if _display is not None:
         return _display
@@ -59,13 +62,21 @@ def get_display():
         try:
             _display = auto()
             _display.set_border(_display.BLACK)
-            print(f"Inky display initialized: {_display.width}x{_display.height}")
+            _actual_width = _display.width
+            _actual_height = _display.height
+            print(f"Inky display initialized: {_actual_width}x{_actual_height}")
             return _display
         except Exception as e:
             print(f"Failed to init Inky display: {e}")
 
     _display = MockDisplay()
     return _display
+
+
+def get_display_size():
+    """Get actual display dimensions (initializes display if needed)"""
+    get_display()
+    return _actual_width, _actual_height
 
 
 def is_busy():
@@ -186,7 +197,7 @@ def get_system_ip():
 
 def generate_info_screen(photo_count=0, wifi_status="Unknown", ap_mode=False):
     """Generate an info screen with QR code and system information"""
-    width, height = DISPLAY_WIDTH, DISPLAY_HEIGHT
+    width, height = get_display_size()
     img = Image.new('RGB', (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(img)
 
@@ -253,7 +264,7 @@ def show_info_screen(photo_count=0, wifi_status="Unknown", ap_mode=False):
 
 def show_message(title, message, submessage=None):
     """Display a simple centered message on the e-ink screen"""
-    width, height = DISPLAY_WIDTH, DISPLAY_HEIGHT
+    width, height = get_display_size()
     img = Image.new('RGB', (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(img)
 

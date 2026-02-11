@@ -11,8 +11,16 @@ ORIGINALS_DIR = DATA_DIR / "originals"
 DISPLAY_DIR = DATA_DIR / "display"
 THUMBNAILS_DIR = DATA_DIR / "thumbnails"
 
-DISPLAY_SIZE = (800, 480)
 THUMBNAIL_SIZE = (300, 200)
+
+
+def get_display_size():
+    """Get display size from display module, fallback to 800x480"""
+    try:
+        import display as disp_mod
+        return disp_mod.get_display_size()
+    except Exception:
+        return (800, 480)
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
 ALLOWED_MIME_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/tiff'}
@@ -59,7 +67,7 @@ def resize_for_display(img, fit_mode="contain"):
         "cover" - fill display completely, crop edges
         "stretch" - stretch to fill (may distort)
     """
-    width, height = DISPLAY_SIZE
+    width, height = get_display_size()
 
     if fit_mode == "stretch":
         return img.resize((width, height), Image.LANCZOS)
