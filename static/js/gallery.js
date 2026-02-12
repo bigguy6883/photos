@@ -64,7 +64,25 @@ function deleteSelected() {
 }
 
 function displayAction(action) {
-    fetch('/api/display/' + action, {method: 'POST'});
+    var btn = event.target;
+    btn.disabled = true;
+    btn.textContent = action === 'info' ? 'Updating...' : btn.textContent;
+    fetch('/api/display/' + action, {method: 'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (action === 'info') btn.textContent = 'Done!';
+            setTimeout(function() {
+                btn.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+                btn.disabled = false;
+            }, 2000);
+        })
+        .catch(function() {
+            btn.textContent = 'Error';
+            setTimeout(function() {
+                btn.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+                btn.disabled = false;
+            }, 2000);
+        });
 }
 
 function displayShow(photoId) {
