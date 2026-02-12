@@ -1,9 +1,17 @@
 """Image processing for photo uploads: resize, thumbnail, EXIF handling"""
 
 import uuid
+import numpy as np
 from pathlib import Path
 from PIL import Image, ImageOps
 from datetime import datetime
+
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+    print("opencv not available - smart recenter disabled")
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
@@ -58,7 +66,46 @@ def get_exif_date(img):
     return None
 
 
-def resize_for_display(img, fit_mode="contain"):
+def find_smart_center(img):
+    """
+    Detect the main subject in the image and return its center (x, y).
+    Tries face detection first, then saliency as fallback.
+    Returns (center_x, center_y) or None if nothing detected.
+    """
+    if not CV2_AVAILABLE:
+        return None
+
+    # Convert PIL Image to OpenCV format
+    cv_img = np.array(img)
+    cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+
+    # Try face detection
+    cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+    if len(faces) > 0:
+        # Use the largest face
+        largest = max(faces, key=lambda f: f[2] * f[3])
+        x, y, w, h = largest
+        return (x + w // 2, y + h // 2)
+
+    # Fallback: edge-based saliency (gradient magnitude)
+    try:
+        gx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+        gy = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        mag = cv2.magnitude(gx, gy).astype(np.float32)
+        mag = cv2.GaussianBlur(mag, (51, 51), 0)
+        _, _, _, max_loc = cv2.minMaxLoc(mag)
+        return max_loc  # (x, y)
+    except Exception:
+        pass
+
+    return None
+
+
+def resize_for_display(img, fit_mode="contain", smart_recenter=False):
     """
     Resize image to display dimensions (800x480).
 
@@ -77,13 +124,26 @@ def resize_for_display(img, fit_mode="contain"):
     img_ratio = img_w / img_h
 
     if fit_mode == "cover":
+        # Find subject center if smart recenter is enabled
+        center = None
+        if smart_recenter:
+            center = find_smart_center(img)
+
         if img_ratio > target_ratio:
             new_w = int(img_h * target_ratio)
-            left = (img_w - new_w) // 2
+            if center:
+                left = center[0] - new_w // 2
+                left = max(0, min(left, img_w - new_w))
+            else:
+                left = (img_w - new_w) // 2
             img = img.crop((left, 0, left + new_w, img_h))
         else:
             new_h = int(img_w / target_ratio)
-            top = (img_h - new_h) // 2
+            if center:
+                top = center[1] - new_h // 2
+                top = max(0, min(top, img_h - new_h))
+            else:
+                top = (img_h - new_h) // 2
             img = img.crop((0, top, img_w, top + new_h))
         return img.resize((width, height), Image.LANCZOS)
 
@@ -103,13 +163,14 @@ def resize_for_display(img, fit_mode="contain"):
     return background
 
 
-def process_upload(file_storage, fit_mode="contain"):
+def process_upload(file_storage, fit_mode="contain", smart_recenter=False):
     """
     Process an uploaded file: save original, create display version, create thumbnail.
 
     Args:
         file_storage: werkzeug FileStorage object
         fit_mode: how to fit image to display
+        smart_recenter: use face/subject detection for cover crop
 
     Returns:
         dict with keys: filename, original_path, display_path, thumbnail_path,
@@ -145,7 +206,7 @@ def process_upload(file_storage, fit_mode="contain"):
             img = img.convert('RGB')
 
         # Create display version (800x480 PNG)
-        display_img = resize_for_display(img, fit_mode)
+        display_img = resize_for_display(img, fit_mode, smart_recenter=smart_recenter)
         display_filename = Path(filename).stem + ".png"
         display_path = DISPLAY_DIR / display_filename
         display_img.save(str(display_path), "PNG")
@@ -184,7 +245,7 @@ def delete_photo_files(photo_dict):
             Path(path).unlink(missing_ok=True)
 
 
-def reprocess_display_images(fit_mode="contain"):
+def reprocess_display_images(fit_mode="contain", smart_recenter=False):
     """
     Reprocess all display images from originals (e.g. after fit_mode change).
     Returns count of reprocessed images.
@@ -200,7 +261,7 @@ def reprocess_display_images(fit_mode="contain"):
             if img.mode != 'RGB':
                 img = img.convert('RGB')
 
-            display_img = resize_for_display(img, fit_mode)
+            display_img = resize_for_display(img, fit_mode, smart_recenter=smart_recenter)
             display_filename = original.stem + ".png"
             display_path = DISPLAY_DIR / display_filename
             display_img.save(str(display_path), "PNG")

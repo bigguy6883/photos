@@ -16,7 +16,8 @@ DEFAULT_SETTINGS = {
     "display": {
         "orientation": "horizontal",
         "fit_mode": "contain",
-        "saturation": 0.5
+        "saturation": 0.5,
+        "smart_recenter": False
     },
     "slideshow": {
         "order": "random",
