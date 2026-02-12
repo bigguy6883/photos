@@ -21,7 +21,7 @@ def get_display_size():
         import display as disp_mod
         return disp_mod.get_display_size()
     except Exception:
-        return (800, 480)
+        return (600, 448)
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
 ALLOWED_MIME_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/tiff'}
@@ -125,7 +125,7 @@ def find_smart_center(img):
 
 def resize_for_display(img, fit_mode="contain", smart_recenter=False):
     """
-    Resize image to display dimensions (800x480).
+    Resize image to display dimensions (600x448).
 
     fit_mode:
         "contain" - fit entire image, black bars if needed
@@ -223,7 +223,7 @@ def process_upload(file_storage, fit_mode="contain", smart_recenter=False):
         if img.mode != 'RGB':
             img = img.convert('RGB')
 
-        # Create display version (800x480 PNG)
+        # Create display version (600x448 PNG)
         display_img = resize_for_display(img, fit_mode, smart_recenter=smart_recenter)
         display_filename = Path(filename).stem + ".png"
         display_path = DISPLAY_DIR / display_filename

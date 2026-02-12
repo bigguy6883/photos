@@ -8,8 +8,8 @@ E-ink photo frame with web-based photo upload. Users drag-and-drop photos from t
 
 - Flask web app serving on port 80
 - Drag-drop upload via browser (mobile-first)
-- Three-tier image storage: originals, display-ready 800x480, thumbnails 300x200
-- Inky Impression 7.3" 7-color e-ink display with saturation control
+- Three-tier image storage: originals, display-ready 600x448, thumbnails 300x200
+- Inky Impression 5.7" 7-color e-ink display with saturation control
 - MockDisplay for headless dev (saves to data/mock_display.png)
 - APScheduler for slideshow cycling
 - SQLite for photo metadata, JSON for settings
@@ -30,7 +30,7 @@ static/
   js/upload.js, gallery.js
 data/               # Gitignored runtime data
   originals/        # Original uploads
-  display/          # Pre-rendered 800x480 PNG
+  display/          # Pre-rendered 600x448 PNG
   thumbnails/       # 300x200 JPEG for web gallery
 config/             # Gitignored settings + DB
 ```

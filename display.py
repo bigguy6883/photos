@@ -19,8 +19,8 @@ try:
 except ImportError:
     QRCODE_AVAILABLE = False
 
-DISPLAY_WIDTH = 800
-DISPLAY_HEIGHT = 480
+DISPLAY_WIDTH = 600
+DISPLAY_HEIGHT = 448
 DATA_DIR = Path(__file__).parent / "data"
 MOCK_DISPLAY_PATH = DATA_DIR / "mock_display.png"
 
@@ -115,7 +115,7 @@ def _show_on_display(img, saturation=0.5):
 def show_photo(image_path, saturation=0.5):
     """
     Display a pre-rendered display image on the e-ink screen.
-    The image should already be 800x480 (from image_processor).
+    The image should already be 600x448 (from image_processor).
     Runs in a background thread to avoid blocking.
     """
     def _do_show():
