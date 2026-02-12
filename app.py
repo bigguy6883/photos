@@ -7,6 +7,7 @@ Flask web app with drag-drop upload, gallery management, and e-ink display contr
 import os
 import sys
 import time
+import logging
 import threading
 import signal
 import secrets
@@ -437,6 +438,7 @@ def signal_handler(signum, frame):
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='%(name)s: %(message)s')
     models.init_db()
     image_processor.ensure_dirs()
     signal.signal(signal.SIGTERM, signal_handler)
@@ -454,6 +456,22 @@ def main():
 
         photo_count = models.get_photo_count()
         settings = models.load_settings()
+
+        # Reprocess display images if settings changed since last render
+        if photo_count > 0:
+            display_settings = settings.get('display', {})
+            current_fit = display_settings.get('fit_mode', 'contain')
+            current_recenter = display_settings.get('smart_recenter', False)
+            last_state = image_processor.get_display_state()
+            if (last_state is None
+                    or last_state.get('fit_mode') != current_fit
+                    or last_state.get('smart_recenter') != current_recenter):
+                print(f"Display images stale, reprocessing with fit_mode={current_fit}")
+                threading.Thread(
+                    target=image_processor.reprocess_display_images,
+                    kwargs={'fit_mode': current_fit, 'smart_recenter': current_recenter},
+                    daemon=True
+                ).start()
 
         if photo_count > 0 and settings.get("slideshow", {}).get("enabled", True):
             scheduler.start_slideshow()

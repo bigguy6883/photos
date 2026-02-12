@@ -1,10 +1,14 @@
 """Image processing for photo uploads: resize, thumbnail, EXIF handling"""
 
 import gc
+import json
 import uuid
+import logging
 from pathlib import Path
 from PIL import Image, ImageOps
 from datetime import datetime
+
+log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
@@ -13,6 +17,7 @@ DISPLAY_DIR = DATA_DIR / "display"
 THUMBNAILS_DIR = DATA_DIR / "thumbnails"
 
 THUMBNAIL_SIZE = (300, 200)
+DISPLAY_STATE_FILE = DATA_DIR / ".display_state.json"
 
 
 def get_display_size():
@@ -263,13 +268,34 @@ def delete_photo_files(photo_dict):
             Path(path).unlink(missing_ok=True)
 
 
+def _save_display_state(fit_mode, smart_recenter):
+    """Save the current display processing state to a marker file."""
+    try:
+        DISPLAY_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(DISPLAY_STATE_FILE, 'w') as f:
+            json.dump({'fit_mode': fit_mode, 'smart_recenter': smart_recenter}, f)
+    except Exception as e:
+        log.warning("Failed to save display state: %s", e)
+
+
+def get_display_state():
+    """Read the last-processed display state. Returns dict or None."""
+    try:
+        with open(DISPLAY_STATE_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
 def reprocess_display_images(fit_mode="contain", smart_recenter=False):
     """
     Reprocess all display images from originals (e.g. after fit_mode change).
     Returns count of reprocessed images.
     """
+    log.info("Reprocessing display images: fit_mode=%s, smart_recenter=%s", fit_mode, smart_recenter)
     ensure_dirs()
     count = 0
+    errors = 0
     for original in ORIGINALS_DIR.iterdir():
         if original.suffix.lower() not in ALLOWED_EXTENSIONS:
             continue
@@ -285,7 +311,11 @@ def reprocess_display_images(fit_mode="contain", smart_recenter=False):
             display_img.save(str(display_path), "PNG")
             count += 1
         except Exception as e:
-            print(f"Error reprocessing {original.name}: {e}")
+            errors += 1
+            log.error("Error reprocessing %s: %s", original.name, e)
         finally:
             gc.collect()
+
+    _save_display_state(fit_mode, smart_recenter)
+    log.info("Reprocess complete: %d ok, %d errors", count, errors)
     return count
