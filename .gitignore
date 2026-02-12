@@ -13,6 +13,9 @@ data/
 config/
 *.db
 
+# ML models (downloaded at install time)
+models/
+
 # IDE
 .idea/
 .vscode/

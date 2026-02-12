@@ -59,10 +59,13 @@ def get_exif_date(img):
     return None
 
 
+YUNET_MODEL = Path(__file__).parent / "models" / "face_detection_yunet_2023mar.onnx"
+
+
 def find_smart_center(img):
     """
     Detect the main subject in the image and return its center (x, y)
-    in original image coordinates. Tries face detection first, then
+    in original image coordinates. Uses YuNet DNN face detector, then
     edge-based saliency as fallback.
     Returns (center_x, center_y) or None if nothing detected.
     Downscales internally to limit memory on low-RAM devices.
@@ -75,36 +78,34 @@ def find_smart_center(img):
 
     orig_w, orig_h = img.size
 
-    # Downscale to max 640px wide for detection (saves RAM)
+    # Downscale for detection (saves RAM)
     MAX_DET = 640
-    if orig_w > MAX_DET:
-        scale = MAX_DET / orig_w
-        det_img = img.resize((MAX_DET, int(orig_h * scale)), Image.BILINEAR)
-    else:
-        scale = 1.0
-        det_img = img
-
-    gray = np.array(det_img.convert('L'))
+    scale = min(MAX_DET / orig_w, MAX_DET / orig_h, 1.0)
+    dw, dh = int(orig_w * scale), int(orig_h * scale)
+    det_img = img.resize((dw, dh), Image.BILINEAR)
+    cv_img = np.array(det_img)
+    cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
     del det_img
 
-    # Try face detection
-    try:
-        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-    except AttributeError:
-        cascade_path = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml"
-    face_cascade = cv2.CascadeClassifier(cascade_path)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(20, 20))
-
-    if len(faces) > 0:
-        largest = max(faces, key=lambda f: f[2] * f[3])
-        x, y, w, h = largest
-        cx = int((x + w // 2) / scale)
-        cy = int((y + h // 2) / scale)
-        del gray, faces
-        return (cx, cy)
+    # Try YuNet DNN face detection
+    if YUNET_MODEL.exists():
+        try:
+            detector = cv2.FaceDetectorYN.create(str(YUNET_MODEL), "", (dw, dh), 0.5)
+            _, faces = detector.detect(cv_img)
+            del detector
+            if faces is not None and len(faces) > 0:
+                largest = max(faces, key=lambda f: f[2] * f[3])
+                cx = int((largest[0] + largest[2] / 2) / scale)
+                cy = int((largest[1] + largest[3] / 2) / scale)
+                del cv_img, faces
+                return (cx, cy)
+        except Exception:
+            pass
 
     # Fallback: edge-based saliency (gradient magnitude, 32-bit to save RAM)
     try:
+        gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+        del cv_img
         gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
         gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
         del gray

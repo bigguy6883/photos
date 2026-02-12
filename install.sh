@@ -48,7 +48,14 @@ fi
 
 # Create directories
 echo "Creating directories..."
-mkdir -p config data/originals data/display data/thumbnails
+mkdir -p config data/originals data/display data/thumbnails models
+
+# Download YuNet face detection model
+YUNET_MODEL="models/face_detection_yunet_2023mar.onnx"
+if [ ! -f "$YUNET_MODEL" ]; then
+    echo "Downloading YuNet face detection model..."
+    curl -L -o "$YUNET_MODEL" "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+fi
 
 # Initialize database
 if [ ! -f "config/photos.db" ]; then
