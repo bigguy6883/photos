@@ -59,6 +59,12 @@ sudo journalctl -u photos -f
 - `GET|POST /api/settings` - Settings CRUD
 - `GET /api/status` - System status
 
+## Dependencies
+
+- Prefer system apt packages (`python3-opencv`, etc.) over pip for heavy native libraries — the target Pi is armv7l and compiling from source (e.g. opencv-python-headless) takes too long or OOM-kills
+- Use `install.sh` to symlink system packages into the venv when needed
+- Pure-Python packages are fine via pip/requirements.txt
+
 ## GPIO Buttons (BCM)
 
 | Pin | Function |
