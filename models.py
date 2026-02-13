@@ -1,4 +1,4 @@
-"""SQLite database models and JSON settings for photos.local"""
+"""SQLite database models and JSON settings for InkFrame"""
 
 import sqlite3
 import json

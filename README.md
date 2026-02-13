@@ -1,4 +1,4 @@
-# photos.local
+# InkFrame
 
 E-ink photo frame with a web-based upload interface. Drag and drop photos from your phone or computer — no cloud sync or Google account needed.
 
@@ -24,8 +24,8 @@ E-ink photo frame with a web-based upload interface. Drag and drop photos from y
 ## Install
 
 ```bash
-git clone https://github.com/bigguy6883/photos.git
-cd photos
+git clone https://github.com/bigguy6883/inkframe.git
+cd inkframe
 ./install.sh
 ```
 
@@ -37,8 +37,8 @@ The web interface is available at `http://photos.local/` after install. Upload p
 
 ```bash
 # Service management
-sudo systemctl start|stop|restart photos
-sudo journalctl -u photos -f
+sudo systemctl start|stop|restart inkframe
+sudo journalctl -u inkframe -f
 ```
 
 ## Requirements

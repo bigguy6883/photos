@@ -206,7 +206,7 @@ def generate_info_screen(photo_count=0, wifi_status="Unknown", ap_mode=False):
 
     # QR code
     if ap_mode:
-        qr_data = "WIFI:T:WPA;S:photos-setup;P:photoframe;;"
+        qr_data = "WIFI:T:WPA;S:inkframe-setup;P:photoframe;;"
     else:
         qr_data = f"http://{hostname}.local/"
 
@@ -229,7 +229,7 @@ def generate_info_screen(photo_count=0, wifi_status="Unknown", ap_mode=False):
         text_y += 55
         draw.text((text_x, text_y), "1. Connect to WiFi:", font=font_small, fill=(0, 0, 0))
         text_y += 30
-        draw.text((text_x + 20, text_y), "photos-setup", font=font_medium, fill=(0, 100, 200))
+        draw.text((text_x + 20, text_y), "inkframe-setup", font=font_medium, fill=(0, 100, 200))
         text_y += 38
         draw.text((text_x + 20, text_y), "Password: photoframe", font=font_small, fill=(100, 100, 100))
         text_y += 35
@@ -239,7 +239,7 @@ def generate_info_screen(photo_count=0, wifi_status="Unknown", ap_mode=False):
         text_y += 35
         draw.text((text_x, text_y), "Or scan QR to connect", font=font_small, fill=(100, 100, 100))
     else:
-        draw.text((text_x, text_y), "photos.local", font=font_large, fill=(0, 0, 0))
+        draw.text((text_x, text_y), "InkFrame", font=font_large, fill=(0, 0, 0))
         text_y += 70
         draw.text((text_x, text_y), f"IP: {ip}", font=font_medium, fill=(0, 0, 0))
         text_y += 45

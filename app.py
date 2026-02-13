@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-photos.local - E-Ink Photo Frame
+InkFrame - E-Ink Photo Frame
 Flask web app with drag-drop upload, gallery management, and e-ink display control
 """
 
@@ -484,7 +484,7 @@ def main():
         wifi_manager.start_ap_mode()
         display.show_info_screen(ap_mode=True)
 
-    print("Starting photos.local web server...")
+    print("Starting InkFrame web server...")
     app.run(host='0.0.0.0', port=80, threaded=True)
 
 

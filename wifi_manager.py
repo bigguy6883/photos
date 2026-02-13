@@ -4,7 +4,7 @@ import subprocess
 import time
 import re
 
-AP_SSID = "photos-setup"
+AP_SSID = "inkframe-setup"
 AP_PASSWORD = "photoframe"
 AP_IP = "192.168.4.1"
 

@@ -1,9 +1,9 @@
 #!/bin/bash
-# photos.local installation script
+# InkFrame installation script
 
 set -e
 
-echo "=== photos.local Installation ==="
+echo "=== InkFrame Installation ==="
 echo ""
 
 # Check if running as root
@@ -70,20 +70,28 @@ if [ "$CURRENT_HOSTNAME" != "photos" ]; then
     sudo hostnamectl set-hostname photos
 fi
 
+# Remove old service if present
+if [ -f /etc/systemd/system/photos.service ]; then
+    echo "Removing old photos.service..."
+    sudo systemctl stop photos 2>/dev/null || true
+    sudo systemctl disable photos 2>/dev/null || true
+    sudo rm /etc/systemd/system/photos.service
+fi
+
 # Install and enable systemd service
 echo "Installing systemd service..."
-sudo cp photos.service /etc/systemd/system/
+sudo cp inkframe.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable photos
+sudo systemctl enable inkframe
 
 echo ""
 echo "=== Installation Complete ==="
 echo ""
 echo "To start the service:"
-echo "  sudo systemctl start photos"
+echo "  sudo systemctl start inkframe"
 echo ""
 echo "To view logs:"
-echo "  sudo journalctl -u photos -f"
+echo "  sudo journalctl -u inkframe -f"
 echo ""
 echo "The web interface will be available at:"
 echo "  http://photos.local/"
@@ -92,6 +100,6 @@ echo ""
 read -p "Start the service now? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    sudo systemctl start photos
+    sudo systemctl start inkframe
     echo "Service started!"
 fi

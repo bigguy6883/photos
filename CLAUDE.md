@@ -1,4 +1,4 @@
-# photos.local - E-Ink Photo Frame
+# InkFrame - E-Ink Photo Frame
 
 ## Overview
 
@@ -43,8 +43,8 @@ source venv/bin/activate
 python3 -c "from app import app; app.run(host='0.0.0.0', port=8080)"
 
 # Service management (on target Pi)
-sudo systemctl start|stop|restart photos
-sudo journalctl -u photos -f
+sudo systemctl start|stop|restart inkframe
+sudo journalctl -u inkframe -f
 ```
 
 ## API Endpoints

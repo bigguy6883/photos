@@ -1,5 +1,5 @@
 [Unit]
-Description=photos.local - E-Ink Photo Frame
+Description=InkFrame - E-Ink Photo Frame
 After=network-online.target NetworkManager.service
 Wants=network-online.target
 
