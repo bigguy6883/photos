@@ -11,8 +11,9 @@ import display
 
 _scheduler = None
 _scheduler_lock = threading.Lock()
-_current_index = 0
-_photo_list = []
+_current_path = None  # Track by path, not index
+_shuffle_bag = []     # Shuffle-bag for random mode: ensures all photos shown before repeats
+_history = []         # History stack for "previous" button
 
 INTERVAL_OPTIONS = [5, 15, 30, 60, 180, 360, 720, 1440]
 
@@ -26,20 +27,39 @@ def get_scheduler():
     return _scheduler
 
 
-def _refresh_photo_list():
-    """Reload photo list from database"""
-    global _photo_list
-    settings = models.load_settings()
-    order = settings.get("slideshow", {}).get("order", "random")
-    _photo_list = models.get_display_photos(order)
+def _get_sequential_list():
+    """Get stable sequential photo list"""
+    return models.get_display_photos("sequential")
+
+
+def _next_from_shuffle_bag(all_photos):
+    """Pick next photo from shuffle bag, refilling when empty.
+    Guarantees every photo is shown exactly once per cycle."""
+    global _shuffle_bag, _current_path
+
+    # Remove any photos from bag that no longer exist
+    valid_photos = set(all_photos)
+    _shuffle_bag = [p for p in _shuffle_bag if p in valid_photos]
+
+    # Refill bag when empty
+    if not _shuffle_bag:
+        _shuffle_bag = list(all_photos)
+        random.shuffle(_shuffle_bag)
+        # If possible, avoid repeating the last shown photo at start of new cycle
+        if len(_shuffle_bag) > 1 and _shuffle_bag[0] == _current_path:
+            # Swap first with a random other position
+            swap_idx = random.randint(1, len(_shuffle_bag) - 1)
+            _shuffle_bag[0], _shuffle_bag[swap_idx] = _shuffle_bag[swap_idx], _shuffle_bag[0]
+
+    return _shuffle_bag.pop(0)
 
 
 def show_next_photo():
     """Display the next photo"""
-    global _current_index
+    global _current_path
 
-    _refresh_photo_list()
-    if not _photo_list:
+    all_photos = _get_sequential_list()
+    if not all_photos:
         print("No photos available")
         return False
 
@@ -48,26 +68,33 @@ def show_next_photo():
     saturation = settings.get("display", {}).get("saturation", 0.5)
 
     if order == "random":
-        if len(_photo_list) == 1:
-            path = _photo_list[0]
-        else:
-            available = [p for i, p in enumerate(_photo_list) if i != _current_index]
-            path = random.choice(available)
-            _current_index = _photo_list.index(path)
+        path = _next_from_shuffle_bag(all_photos)
     else:
-        _current_index = (_current_index + 1) % len(_photo_list)
-        path = _photo_list[_current_index]
+        # Sequential: find current photo's position and advance
+        if _current_path in all_photos:
+            idx = all_photos.index(_current_path)
+            path = all_photos[(idx + 1) % len(all_photos)]
+        else:
+            path = all_photos[0]
 
+    # Save to history before changing
+    if _current_path:
+        _history.append(_current_path)
+        # Keep history bounded
+        if len(_history) > 100:
+            _history.pop(0)
+
+    _current_path = path
     display.show_photo(path, saturation)
     return True
 
 
 def show_previous_photo():
     """Display the previous photo"""
-    global _current_index
+    global _current_path
 
-    _refresh_photo_list()
-    if not _photo_list:
+    all_photos = _get_sequential_list()
+    if not all_photos:
         return False
 
     settings = models.load_settings()
@@ -75,28 +102,46 @@ def show_previous_photo():
     saturation = settings.get("display", {}).get("saturation", 0.5)
 
     if order == "random":
-        if len(_photo_list) > 1:
-            available = [p for i, p in enumerate(_photo_list) if i != _current_index]
-            path = random.choice(available)
-            _current_index = _photo_list.index(path)
+        # Go back in history if available
+        if _history:
+            path = _history.pop()
+            # Make sure it still exists
+            while _history and path not in all_photos:
+                path = _history.pop()
+            if path not in all_photos:
+                path = _next_from_shuffle_bag(all_photos)
         else:
-            path = _photo_list[0]
+            path = _next_from_shuffle_bag(all_photos)
     else:
-        _current_index = (_current_index - 1) % len(_photo_list)
-        path = _photo_list[_current_index]
+        # Sequential: find current photo's position and go back
+        if _current_path in all_photos:
+            idx = all_photos.index(_current_path)
+            path = all_photos[(idx - 1) % len(all_photos)]
+        else:
+            path = all_photos[-1]
 
+    _current_path = path
     display.show_photo(path, saturation)
     return True
 
 
 def show_specific_photo(photo_id):
     """Display a specific photo by ID"""
+    global _current_path
+
     photo = models.get_photo(photo_id)
     if not photo:
         return False
 
     settings = models.load_settings()
     saturation = settings.get("display", {}).get("saturation", 0.5)
+
+    if _current_path:
+        _history.append(_current_path)
+        if len(_history) > 100:
+            _history.pop(0)
+
+    _current_path = photo['display_path']
     display.show_photo(photo['display_path'], saturation)
     return True
 
