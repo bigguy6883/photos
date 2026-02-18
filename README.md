@@ -23,7 +23,8 @@ Self-hosted e-ink photo frame with a mobile-first web interface. Drag and drop p
 
 ### Slideshow
 - Automatic photo cycling with configurable interval (5 min to 24 hours)
-- Random (shuffle-bag, no repeats until all shown) or sequential order
+- **Random** (default): shuffle-bag guarantees every photo shown once before any repeat, position survives restarts
+- **Sequential**: cycles in upload order, position survives restarts
 - Auto-starts on boot when enabled
 - History stack for navigating back through recent photos
 
