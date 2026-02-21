@@ -166,13 +166,12 @@ def get_photo_count():
 
 
 def get_display_photos(order="random"):
-    """Get photos for display cycling, returns list of display_path strings"""
+    """Get photos for display cycling, returns list of display_path strings.
+    Always returns stable ASC order; shuffling is handled by the caller (scheduler).
+    """
     conn = get_db()
     cursor = conn.cursor()
-    if order == "random":
-        cursor.execute('SELECT display_path FROM photos ORDER BY RANDOM()')
-    else:
-        cursor.execute('SELECT display_path FROM photos ORDER BY uploaded_at ASC')
+    cursor.execute('SELECT display_path FROM photos ORDER BY uploaded_at ASC')
     rows = cursor.fetchall()
     conn.close()
     return [row['display_path'] for row in rows]
@@ -194,6 +193,8 @@ def delete_photo(photo_id):
 
 def delete_photos_bulk(photo_ids):
     """Delete multiple photos, returns list of photo dicts for file cleanup"""
+    if not photo_ids:
+        return []
     conn = get_db()
     cursor = conn.cursor()
     photos = []
@@ -203,8 +204,9 @@ def delete_photos_bulk(photo_ids):
         if row:
             photos.append(dict(row))
     if photos:
-        placeholders = ','.join('?' * len(photo_ids))
-        cursor.execute(f'DELETE FROM photos WHERE id IN ({placeholders})', photo_ids)
+        found_ids = [p['id'] for p in photos]
+        placeholders = ','.join('?' * len(found_ids))
+        cursor.execute(f'DELETE FROM photos WHERE id IN ({placeholders})', found_ids)
         conn.commit()
     conn.close()
     return photos
