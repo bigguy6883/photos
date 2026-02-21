@@ -55,6 +55,27 @@ _BUTTON_PINS = [BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_D]
 
 
 # --- GPIO Button Handlers ---
+def _open_gpio_with_timeout(timeout=5.0):
+    """Open GPIO chip in a thread to enforce a startup timeout."""
+    result = [None]
+    error = [None]
+
+    def _open():
+        try:
+            result[0] = lgpio.gpiochip_open(0)
+        except Exception as e:
+            error[0] = e
+
+    t = threading.Thread(target=_open, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+
+    if t.is_alive():
+        raise RuntimeError(f"lgpio.gpiochip_open(0) timed out after {timeout}s")
+    if error[0] is not None:
+        raise error[0]
+    return result[0]
+
 
 def setup_buttons():
     global _buttons_initialized, _button_thread, _gpio_handle
@@ -62,7 +83,7 @@ def setup_buttons():
         return
 
     try:
-        _gpio_handle = lgpio.gpiochip_open(0)
+        _gpio_handle = _open_gpio_with_timeout(timeout=5.0)
         for pin in _BUTTON_PINS:
             lgpio.gpio_claim_input(_gpio_handle, pin, lgpio.SET_PULL_UP)
 
