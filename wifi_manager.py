@@ -82,7 +82,7 @@ def scan_networks():
 
     for line in output.split('\n'):
         # maxsplit=2 so SSIDs containing colons are preserved in parts[0]
-        parts = line.split(':', maxsplit=2)
+        parts = line.rsplit(':', maxsplit=2)
         if len(parts) >= 3:
             ssid = parts[0].strip()
             if ssid and ssid not in seen and ssid != AP_SSID:
