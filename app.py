@@ -44,6 +44,7 @@ BUTTON_D = 24  # Setup mode / Long press: reboot
 
 _buttons_initialized = False
 _in_setup_mode = False
+_setup_mode_lock = threading.Lock()
 _button_thread = None
 _gpio_handle = None
 
@@ -116,18 +117,22 @@ def _button_poll_loop():
 
 
 def _btn_info():
+    with _setup_mode_lock:
+        ap = _in_setup_mode
     wifi_status = wifi_manager.get_wifi_status() or "Not connected"
     photo_count = models.get_photo_count()
-    display.show_info_screen(photo_count=photo_count, wifi_status=wifi_status, ap_mode=_in_setup_mode)
+    display.show_info_screen(photo_count=photo_count, wifi_status=wifi_status, ap_mode=ap)
 
 
 def _btn_setup():
     global _in_setup_mode
-    if not _in_setup_mode:
+    with _setup_mode_lock:
+        if _in_setup_mode:
+            return
         _in_setup_mode = True
-        wifi_manager.start_ap_mode()
-        display.show_info_screen(ap_mode=True)
-        print("Entered setup mode")
+    wifi_manager.start_ap_mode()
+    display.show_info_screen(ap_mode=True)
+    print("Entered setup mode")
 
 
 def _btn_reboot():
@@ -309,9 +314,11 @@ def display_show(photo_id):
 @app.route('/api/display/info', methods=['POST'])
 def display_info():
     """Show info screen on display"""
+    with _setup_mode_lock:
+        ap = _in_setup_mode
     wifi_status = wifi_manager.get_wifi_status() or "Not connected"
     photo_count = models.get_photo_count()
-    display.show_info_screen(photo_count=photo_count, wifi_status=wifi_status, ap_mode=_in_setup_mode)
+    display.show_info_screen(photo_count=photo_count, wifi_status=wifi_status, ap_mode=ap)
     return jsonify({'success': True})
 
 
@@ -424,7 +431,9 @@ def api_status():
 @app.route('/generate_204')
 @app.route('/ncsi.txt')
 def captive_portal_detect():
-    if _in_setup_mode or wifi_manager.is_ap_mode():
+    with _setup_mode_lock:
+        ap = _in_setup_mode
+    if ap or wifi_manager.is_ap_mode():
         return redirect(url_for('setup_wifi'))
     return '', 204
 
@@ -452,7 +461,8 @@ def main():
 
     if wifi_manager.is_wifi_connected():
         print(f"Connected to WiFi: {wifi_manager.get_current_ssid()}")
-        _in_setup_mode = False
+        with _setup_mode_lock:
+            _in_setup_mode = False
 
         photo_count = models.get_photo_count()
         settings = models.load_settings()
@@ -480,7 +490,8 @@ def main():
             display.show_info_screen(photo_count=photo_count, wifi_status=wifi_status)
     else:
         print("No WiFi connection - starting AP mode")
-        _in_setup_mode = True
+        with _setup_mode_lock:
+            _in_setup_mode = True
         wifi_manager.start_ap_mode()
         display.show_info_screen(ap_mode=True)
 
