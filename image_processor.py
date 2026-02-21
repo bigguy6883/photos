@@ -1,6 +1,8 @@
 """Image processing for photo uploads: resize, thumbnail, EXIF handling"""
 
 import gc
+import io
+import threading
 import json
 import uuid
 import logging
@@ -18,6 +20,8 @@ THUMBNAILS_DIR = DATA_DIR / "thumbnails"
 
 THUMBNAIL_SIZE = (300, 200)
 DISPLAY_STATE_FILE = DATA_DIR / ".display_state.json"
+
+_reprocess_lock = threading.Lock()
 
 
 def get_display_size():
@@ -206,16 +210,28 @@ def process_upload(file_storage, fit_mode="contain", smart_recenter=False):
     if not is_allowed_file(original_name):
         return None
 
+    # Validate image in memory before touching disk
+    try:
+        file_data = file_storage.read()
+        img = Image.open(io.BytesIO(file_data))
+        img.verify()  # Raises if the file is corrupt or not a valid image
+        # Re-open after verify() (verify exhausts the internal stream)
+        img = Image.open(io.BytesIO(file_data))
+    except Exception as e:
+        print(f"Invalid image {original_name}: {e}")
+        return None
+
     filename = sanitize_filename(original_name)
     original_path = ORIGINALS_DIR / filename
 
-    # Save original
-    file_storage.save(str(original_path))
-    file_size = original_path.stat().st_size
+    # Save validated original
+    original_path.write_bytes(file_data)
+    file_size = len(file_data)
+    del file_data  # Free memory
 
+    display_path = None
+    thumb_path = None
     try:
-        img = Image.open(str(original_path))
-
         # Apply EXIF orientation transpose
         img = ImageOps.exif_transpose(img)
 
@@ -254,8 +270,12 @@ def process_upload(file_storage, fit_mode="contain", smart_recenter=False):
         }
 
     except Exception as e:
-        # Clean up on error
+        # Clean up all files created so far
         original_path.unlink(missing_ok=True)
+        if display_path:
+            display_path.unlink(missing_ok=True)
+        if thumb_path:
+            thumb_path.unlink(missing_ok=True)
         print(f"Error processing upload {original_name}: {e}")
         return None
 
@@ -290,32 +310,38 @@ def get_display_state():
 def reprocess_display_images(fit_mode="contain", smart_recenter=False):
     """
     Reprocess all display images from originals (e.g. after fit_mode change).
-    Returns count of reprocessed images.
+    Returns count of reprocessed images. No-ops if already running.
     """
-    log.info("Reprocessing display images: fit_mode=%s, smart_recenter=%s", fit_mode, smart_recenter)
-    ensure_dirs()
-    count = 0
-    errors = 0
-    for original in ORIGINALS_DIR.iterdir():
-        if original.suffix.lower() not in ALLOWED_EXTENSIONS:
-            continue
-        try:
-            img = Image.open(str(original))
-            img = ImageOps.exif_transpose(img)
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
+    if not _reprocess_lock.acquire(blocking=False):
+        log.info("Reprocess already in progress, skipping")
+        return 0
+    try:
+        log.info("Reprocessing display images: fit_mode=%s, smart_recenter=%s", fit_mode, smart_recenter)
+        ensure_dirs()
+        count = 0
+        errors = 0
+        for original in ORIGINALS_DIR.iterdir():
+            if original.suffix.lower() not in ALLOWED_EXTENSIONS:
+                continue
+            try:
+                img = Image.open(str(original))
+                img = ImageOps.exif_transpose(img)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
 
-            display_img = resize_for_display(img, fit_mode, smart_recenter=smart_recenter)
-            display_filename = original.stem + ".png"
-            display_path = DISPLAY_DIR / display_filename
-            display_img.save(str(display_path), "PNG")
-            count += 1
-        except Exception as e:
-            errors += 1
-            log.error("Error reprocessing %s: %s", original.name, e)
-        finally:
-            gc.collect()
+                display_img = resize_for_display(img, fit_mode, smart_recenter=smart_recenter)
+                display_filename = original.stem + ".png"
+                display_path = DISPLAY_DIR / display_filename
+                display_img.save(str(display_path), "PNG")
+                count += 1
+            except Exception as e:
+                errors += 1
+                log.error("Error reprocessing %s: %s", original.name, e)
+            finally:
+                gc.collect()
 
-    _save_display_state(fit_mode, smart_recenter)
-    log.info("Reprocess complete: %d ok, %d errors", count, errors)
-    return count
+        _save_display_state(fit_mode, smart_recenter)
+        log.info("Reprocess complete: %d ok, %d errors", count, errors)
+        return count
+    finally:
+        _reprocess_lock.release()
