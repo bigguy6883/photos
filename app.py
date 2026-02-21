@@ -36,6 +36,11 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
 
+
+@app.teardown_appcontext
+def teardown_db(exception):
+    models.close_db()
+
 # Button GPIO pins (active LOW with pull-up)
 BUTTON_A = 5   # Info screen
 BUTTON_B = 6   # Previous photo

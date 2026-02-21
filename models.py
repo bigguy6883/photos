@@ -2,6 +2,7 @@
 
 import sqlite3
 import json
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -31,12 +32,25 @@ DEFAULT_SETTINGS = {
     }
 }
 
+_db_local = threading.local()
+
 
 def get_db():
-    """Get database connection with row factory"""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    """Get per-thread database connection with row factory. Reuses connection within a thread."""
+    conn = getattr(_db_local, 'conn', None)
+    if conn is None:
+        conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        _db_local.conn = conn
     return conn
+
+
+def close_db():
+    """Close the per-thread database connection. Called at end of request/job."""
+    conn = getattr(_db_local, 'conn', None)
+    if conn is not None:
+        conn.close()
+        _db_local.conn = None
 
 
 def init_db():
@@ -65,7 +79,6 @@ def init_db():
     ''')
 
     conn.commit()
-    conn.close()
 
 
 def load_settings():
@@ -128,7 +141,6 @@ def add_photo(filename, original_path, display_path, thumbnail_path,
 
     conn.commit()
     photo_id = cursor.lastrowid
-    conn.close()
     return photo_id
 
 
@@ -138,7 +150,6 @@ def get_photo(photo_id):
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM photos WHERE id = ?', (photo_id,))
     row = cursor.fetchone()
-    conn.close()
     return dict(row) if row else None
 
 
@@ -151,7 +162,6 @@ def get_all_photos(limit=None, offset=0):
     else:
         cursor.execute('SELECT * FROM photos ORDER BY uploaded_at DESC')
     rows = cursor.fetchall()
-    conn.close()
     return [dict(row) for row in rows]
 
 
@@ -161,7 +171,6 @@ def get_photo_count():
     cursor = conn.cursor()
     cursor.execute('SELECT COUNT(*) FROM photos')
     count = cursor.fetchone()[0]
-    conn.close()
     return count
 
 
@@ -173,7 +182,6 @@ def get_display_photos():
     cursor = conn.cursor()
     cursor.execute('SELECT display_path FROM photos ORDER BY uploaded_at ASC')
     rows = cursor.fetchall()
-    conn.close()
     return [row['display_path'] for row in rows]
 
 
@@ -187,7 +195,6 @@ def delete_photo(photo_id):
     if photo:
         cursor.execute('DELETE FROM photos WHERE id = ?', (photo_id,))
         conn.commit()
-    conn.close()
     return photo
 
 
@@ -208,7 +215,6 @@ def delete_photos_bulk(photo_ids):
         placeholders = ','.join('?' * len(found_ids))
         cursor.execute(f'DELETE FROM photos WHERE id IN ({placeholders})', found_ids)
         conn.commit()
-    conn.close()
     return photos
 
 
@@ -220,5 +226,4 @@ def toggle_favorite(photo_id):
     conn.commit()
     cursor.execute('SELECT is_favorite FROM photos WHERE id = ?', (photo_id,))
     row = cursor.fetchone()
-    conn.close()
     return bool(row['is_favorite']) if row else None
