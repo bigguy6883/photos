@@ -19,9 +19,14 @@ def run_cmd(cmd, check=True):
             text=True,
             check=check
         )
+        if result.returncode != 0:
+            cmd_str = ' '.join(str(c) for c in cmd)
+            print(f"Command exited {result.returncode}: {cmd_str}")
+            if result.stderr.strip():
+                print(f"  stderr: {result.stderr.strip()}")
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        print(f"Command failed: {cmd}")
+        print(f"Command failed: {' '.join(str(c) for c in cmd)}")
         print(f"Error: {e.stderr}")
         return None
 
@@ -98,6 +103,19 @@ def scan_networks():
     return networks
 
 
+def get_wifi_interface():
+    """Detect the first available WiFi interface name (falls back to wlan0)."""
+    output = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev"], check=False)
+    if output:
+        for line in output.split('\n'):
+            parts = line.rsplit(':', maxsplit=1)
+            if len(parts) == 2 and parts[1].strip() == 'wifi':
+                iface = parts[0].strip()
+                if iface:
+                    return iface
+    return "wlan0"
+
+
 def start_ap_mode():
     """Start WiFi access point mode"""
     print("Starting AP mode...")
@@ -107,7 +125,8 @@ def start_ap_mode():
     run_cmd(["nmcli", "con", "delete", "Hotspot"], check=False)
 
     # Create hotspot
-    result = run_cmd(["nmcli", "dev", "wifi", "hotspot", "ifname", "wlan0",
+    iface = get_wifi_interface()
+    result = run_cmd(["nmcli", "dev", "wifi", "hotspot", "ifname", iface,
                       "ssid", AP_SSID, "password", AP_PASSWORD], check=False)
     print(f"Hotspot command result: {result}")
     time.sleep(2)
@@ -247,25 +266,25 @@ def get_saved_networks():
 
 def ensure_wifi_connected(timeout=15):
     """
-    Try to connect to a saved WiFi network.
+    Wait for NetworkManager to establish a saved WiFi connection.
     Returns True if connected, False if should start AP mode.
     """
-    # Check if already connected
     if is_wifi_connected():
         return True
 
-    # Get saved networks and try to connect
     saved = get_saved_networks()
     if not saved:
-        print("No saved WiFi networks")
+        print("No saved WiFi networks — will start AP mode")
         return False
 
-    # NetworkManager usually auto-connects, just wait
+    print(f"Waiting up to {timeout}s for WiFi ({len(saved)} saved network(s): {', '.join(saved[:3])})...")
     start = time.time()
     while time.time() - start < timeout:
         if is_wifi_connected():
+            ssid = get_current_ssid()
+            print(f"WiFi connected: {ssid}")
             return True
         time.sleep(1)
 
-    print(f"WiFi connection timeout after {timeout}s")
+    print(f"WiFi not connected after {timeout}s — will start AP mode")
     return False
