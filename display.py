@@ -30,6 +30,7 @@ _actual_width = DISPLAY_WIDTH
 _actual_height = DISPLAY_HEIGHT
 _busy = False
 _busy_lock = threading.Lock()
+_font_cache = None  # Cached (large, medium, small) font tuple
 
 
 class MockDisplay:
@@ -144,7 +145,11 @@ def show_image_object(img, saturation=0.5):
 # --- Info screen and message helpers ---
 
 def _load_fonts():
-    """Load system fonts, returns (large, medium, small)"""
+    """Load system fonts, returns (large, medium, small). Cached after first load."""
+    global _font_cache
+    if _font_cache is not None:
+        return _font_cache
+
     bold_paths = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
@@ -180,20 +185,20 @@ def _load_fonts():
         font_medium = font_large
         font_small = font_large
 
-    return font_large, font_medium, font_small
-
+    _font_cache = (font_large, font_medium, font_small)
+    return _font_cache
 
 def get_system_ip():
     """Get the system's IP address"""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
+        try:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+        finally:
+            s.close()
     except Exception:
         return "127.0.0.1"
-
 
 def generate_info_screen(photo_count=0, wifi_status="Unknown", ap_mode=False):
     """Generate an info screen with QR code and system information"""
