@@ -9,14 +9,16 @@
       <rect width="100" height="100" rx="18"/>
     </clipPath>
   </defs>
-  <!-- Background sky gradient -->
-  <rect width="100" height="100" rx="18" fill="url(#sky)"/>
-  <!-- Sun -->
-  <circle cx="72" cy="32" r="13" fill="#FFE566" opacity="0.95"/>
-  <!-- Far mountain (lighter) -->
-  <polygon points="0,100 40,42 80,100" fill="#1B3A2D" opacity="0.7"/>
-  <!-- Near mountain (darker) -->
-  <polygon points="20,100 58,38 96,100" fill="#0D2218"/>
-  <!-- Foreground strip -->
-  <rect x="0" y="88" width="100" height="12" rx="0" fill="#0D2218" clip-path="url(#rounded)"/>
+  <g clip-path="url(#rounded)">
+    <!-- Background sky gradient -->
+    <rect width="100" height="100" fill="url(#sky)"/>
+    <!-- Sun -->
+    <circle cx="72" cy="32" r="13" fill="#FFE566" opacity="0.95"/>
+    <!-- Far mountain (lighter) -->
+    <polygon points="0,100 40,42 80,100" fill="#1B3A2D" opacity="0.7"/>
+    <!-- Near mountain (darker) -->
+    <polygon points="20,100 58,38 96,100" fill="#0D2218"/>
+    <!-- Foreground strip -->
+    <rect x="0" y="88" width="100" height="12" fill="#0D2218"/>
+  </g>
 </svg>
