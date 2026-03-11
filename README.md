@@ -14,19 +14,22 @@ Self-hosted e-ink photo frame with a mobile-first web interface. Drag and drop p
 - Drag-and-drop upload from any browser (JPG, PNG, GIF, BMP, WebP, TIFF)
 - Gallery view with thumbnails, bulk select, and tap-to-display
 - Up to 20 MB per upload (configurable)
+- Installable as a Progressive Web App (PWA) on mobile
 
 ### Display
 - **Three fit modes**: contain (letterboxed), cover (fills display), stretch
 - **Smart recenter**: YuNet DNN face detection shifts cover crops toward faces, with edge-based saliency fallback
 - **Saturation control**: adjustable e-ink color vibrancy (0.0-1.0)
 - **Orientation**: horizontal or vertical
+- **Auto-reprocess**: changing fit mode or smart recenter settings automatically reprocesses all display images on next startup
 
 ### Slideshow
 - Automatic photo cycling with configurable interval (5 min to 24 hours)
 - **Random** (default): shuffle-bag guarantees every photo shown once before any repeat, position survives restarts
 - **Sequential**: cycles in upload order, position survives restarts
-- Auto-starts on boot when enabled
+- Auto-starts on boot when enabled (default: on)
 - History stack for navigating back through recent photos
+- Slideshow state (position, shuffle bag) persists across restarts
 
 ### Physical Buttons
 
@@ -39,8 +42,9 @@ Self-hosted e-ink photo frame with a mobile-first web interface. Drag and drop p
 
 ### WiFi Setup
 - Built-in access point mode for first-time setup (SSID: `inkframe-setup`, password: `photoframe`)
-- Captive portal auto-redirects to WiFi configuration page
-- QR code on info screen for quick access
+- Captive portal auto-redirects to WiFi configuration page (handles iOS, Android, and Windows detection endpoints)
+- QR code on info screen for quick web access
+- Info screen shows color-coded WiFi status (green = connected, red = disconnected)
 
 ### Web Interface
 - **Gallery** (`/`): upload zone, photo grid, display controls (next/prev/info), slideshow start/stop
@@ -116,7 +120,7 @@ config/             # SQLite DB + JSON settings (gitignored)
 ## Requirements
 
 - Raspberry Pi OS (Bookworm or Trixie)
-- Python 3.11+
+- Python 3.11+ (tested with 3.13 on Trixie)
 - SPI enabled for e-ink display
 - NetworkManager for WiFi management
 
