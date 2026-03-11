@@ -124,6 +124,26 @@ config/             # SQLite DB + JSON settings (gitignored)
 - SPI enabled for e-ink display
 - NetworkManager for WiFi management
 
+## Future Ideas
+
+### Near-term
+- **Favorites**: heart-toggle in gallery, favorites-only slideshow filter (DB field already exists)
+- **Display schedule**: configurable sleep hours to blank the display overnight
+- **Gallery sorting**: sort by date taken, name, or random (EXIF data already captured)
+
+### Medium-term
+- **All-faces centering**: crop to include all detected faces instead of just the largest
+- **Albums/tags**: group photos into collections, slideshow per album
+- **E-ink photo effects**: enhanced dithering, B&W mode, sepia, aggressive 7-color palette mapping
+- **Shared upload link**: generate a temporary token URL so others can upload without network access
+
+### Longer-term
+- **Date/weather overlay**: optional on-screen date, time, or weather info (requires API key)
+- **Backup & restore**: download all originals as zip, export/import settings
+- **OTA updates**: check for updates and pull new code from the web UI
+- **Multi-frame sync**: one server driving multiple InkFrame displays with different albums
+- **Cross-frame sharing**: push photos between InkFrame devices over the internet
+
 ## License
 
 MIT
