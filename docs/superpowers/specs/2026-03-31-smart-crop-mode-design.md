@@ -101,7 +101,7 @@ Same existing mechanism:
 Specific changes in `app.py`:
 - Settings API whitelist: replace `'smart_recenter'` with `'crop_mode'` in allowed display keys, validate value is one of `["center", "smart"]`. Remove the `bool()` coercion branch for `smart_recenter` entirely.
 - Reprocessing trigger condition: change `'smart_recenter' in updates['display']` to `'crop_mode' in updates['display']`
-- `main()` startup state comparison: use `crop_mode` key instead of `smart_recenter` when comparing current settings against `.display_state.json`
+- `main()` startup state comparison: replace both `display_settings.get('smart_recenter', False)` with `display_settings.get('crop_mode', 'center')` AND `last_state.get('smart_recenter')` with `last_state.get('crop_mode')`
 
 Specific changes in `image_processor.py`:
 - `_save_display_state()`: save `crop_mode` key instead of `smart_recenter`
