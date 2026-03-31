@@ -71,13 +71,87 @@ def get_exif_date(img):
 YUNET_MODEL = Path(__file__).parent / "models" / "face_detection_yunet_2023mar.onnx"
 
 
-def find_smart_center(img):
+def _cluster_faces(faces, scale, crop_size):
     """
-    Detect the main subject in the image and return its center (x, y)
-    in original image coordinates. Uses YuNet DNN face detector, then
-    edge-based saliency as fallback.
-    Returns (center_x, center_y) or None if nothing detected.
-    Downscales internally to limit memory on low-RAM devices.
+    Given detected faces and crop window size, return the center of the
+    best face group. Uses 2D Euclidean clustering.
+
+    Args:
+        faces: numpy array of YuNet detections (each row: x, y, w, h, ...)
+        scale: detection downscale factor
+        crop_size: (width, height) of crop window in original image coordinates
+
+    Returns:
+        (cx, cy) in original image coordinates
+    """
+    import math
+
+    # Convert faces to original coordinates: list of (cx, cy, w, h)
+    orig_faces = []
+    for f in faces:
+        cx = (f[0] + f[2] / 2) / scale
+        cy = (f[1] + f[3] / 2) / scale
+        w = f[2] / scale
+        h = f[3] / scale
+        orig_faces.append((cx, cy, w, h))
+
+    # Check if all faces fit in crop window
+    bbox_left = min(f[0] - f[2] / 2 for f in orig_faces)
+    bbox_right = max(f[0] + f[2] / 2 for f in orig_faces)
+    bbox_top = min(f[1] - f[3] / 2 for f in orig_faces)
+    bbox_bottom = max(f[1] + f[3] / 2 for f in orig_faces)
+    bbox_w = bbox_right - bbox_left
+    bbox_h = bbox_bottom - bbox_top
+
+    crop_w, crop_h = crop_size
+    if bbox_w <= crop_w and bbox_h <= crop_h:
+        # All faces fit — return bounding box center
+        return (int((bbox_left + bbox_right) / 2), int((bbox_top + bbox_bottom) / 2))
+
+    # Cluster by 2D Euclidean distance
+    ws = [f[2] for f in orig_faces]
+    avg_face_w = sum(ws) / len(ws)
+    threshold = avg_face_w * 2
+
+    # Greedy clustering: assign each face to nearest cluster within threshold
+    clusters = []  # list of lists of face indices
+    for i, face in enumerate(orig_faces):
+        merged = False
+        for cluster in clusters:
+            for j in cluster:
+                other = orig_faces[j]
+                dist = math.sqrt((face[0] - other[0]) ** 2 + (face[1] - other[1]) ** 2)
+                if dist <= threshold:
+                    cluster.append(i)
+                    merged = True
+                    break
+            if merged:
+                break
+        if not merged:
+            clusters.append([i])
+
+    # Pick cluster with most faces, tie-break by total face area
+    best = max(clusters, key=lambda c: (len(c), sum(orig_faces[i][2] * orig_faces[i][3] for i in c)))
+
+    # Return center of best cluster's bounding box
+    cl_left = min(orig_faces[i][0] - orig_faces[i][2] / 2 for i in best)
+    cl_right = max(orig_faces[i][0] + orig_faces[i][2] / 2 for i in best)
+    cl_top = min(orig_faces[i][1] - orig_faces[i][3] / 2 for i in best)
+    cl_bottom = max(orig_faces[i][1] + orig_faces[i][3] / 2 for i in best)
+    return (int((cl_left + cl_right) / 2), int((cl_top + cl_bottom) / 2))
+
+
+def find_crop_center(img, crop_size):
+    """
+    Detect faces in the image and return the best center point for cropping.
+
+    Args:
+        img: PIL Image (original, EXIF-transposed)
+        crop_size: (width, height) of the crop window in original image pixel
+                   coordinates (pre-resize, same coordinate space as img.size)
+
+    Returns:
+        (cx, cy) in original image pixel coordinates, or None if no faces found.
     """
     try:
         import cv2
@@ -96,40 +170,26 @@ def find_smart_center(img):
     cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
     del det_img
 
-    # Try YuNet DNN face detection
-    if YUNET_MODEL.exists():
-        try:
-            detector = cv2.FaceDetectorYN.create(str(YUNET_MODEL), "", (dw, dh), 0.5)
-            _, faces = detector.detect(cv_img)
-            del detector
-            if faces is not None and len(faces) > 0:
-                largest = max(faces, key=lambda f: f[2] * f[3])
-                cx = int((largest[0] + largest[2] / 2) / scale)
-                cy = int((largest[1] + largest[3] / 2) / scale)
-                del cv_img, faces
-                return (cx, cy)
-        except Exception:
-            pass
-
-    # Fallback: edge-based saliency (gradient magnitude, 32-bit to save RAM)
-    try:
-        gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+    if not YUNET_MODEL.exists():
         del cv_img
-        gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
-        gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
-        del gray
-        mag = cv2.magnitude(gx, gy)
-        del gx, gy
-        mag = cv2.GaussianBlur(mag, (31, 31), 0)
-        _, _, _, max_loc = cv2.minMaxLoc(mag)
-        del mag
-        cx = int(max_loc[0] / scale)
-        cy = int(max_loc[1] / scale)
-        return (cx, cy)
-    except Exception:
-        pass
+        return None
 
-    return None
+    try:
+        detector = cv2.FaceDetectorYN.create(str(YUNET_MODEL), "", (dw, dh), 0.5)
+        _, faces = detector.detect(cv_img)
+        del detector, cv_img
+        if faces is None or len(faces) == 0:
+            return None
+
+        if len(faces) == 1:
+            f = faces[0]
+            cx = int((f[0] + f[2] / 2) / scale)
+            cy = int((f[1] + f[3] / 2) / scale)
+            return (cx, cy)
+
+        return _cluster_faces(faces, scale, crop_size)
+    except Exception:
+        return None
 
 
 def resize_for_display(img, fit_mode="contain", smart_recenter=False):
