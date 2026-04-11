@@ -92,8 +92,14 @@ def _next_from_shuffle_bag(all_photos):
     return _shuffle_bag.pop(0)
 
 
-def show_next_photo():
-    """Display the next photo"""
+def show_next_photo(_from_scheduler=False):
+    """Display the next photo.
+
+    When called manually (via REST/GPIO), re-anchors the cycle timer so the
+    chosen photo sits for a full interval. When called by the scheduler's own
+    tick (_from_scheduler=True), leaves the timer alone — APScheduler's
+    IntervalTrigger already advances to the next fire time on its own.
+    """
     global _current_path
 
     _load_persisted_state()
@@ -128,6 +134,8 @@ def show_next_photo():
     _persist_state()
     display.show_photo(path, saturation)
     print(f"Showing photo: {path} ({len(all_photos)} total)")
+    if not _from_scheduler:
+        _reset_cycle_timer()
     return True
 
 
@@ -166,6 +174,7 @@ def show_previous_photo():
 
     _current_path = path
     display.show_photo(path, saturation)
+    _reset_cycle_timer()
     return True
 
 
@@ -187,13 +196,44 @@ def show_specific_photo(photo_id):
 
     _current_path = photo['display_path']
     display.show_photo(photo['display_path'], saturation)
+    _reset_cycle_timer()
     return True
+
+
+def _reset_cycle_timer():
+    """Re-anchor the photo_cycle job to fire `interval_minutes` from now.
+
+    Called after a manual photo change (select/next/prev) so that a user-chosen
+    photo gets the full rotation interval before the next auto-cycle, instead
+    of being replaced by whatever remained on the original schedule. No-op if
+    the slideshow is stopped (no job registered).
+    """
+    scheduler = get_scheduler()
+    with _scheduler_lock:
+        try:
+            if scheduler.get_job("photo_cycle") is None:
+                return
+        except Exception:
+            return
+
+        settings = models.load_settings()
+        interval_minutes = settings.get("slideshow", {}).get("interval_minutes", 60)
+        if interval_minutes not in INTERVAL_OPTIONS:
+            interval_minutes = 60
+
+        try:
+            scheduler.reschedule_job(
+                "photo_cycle",
+                trigger=IntervalTrigger(minutes=interval_minutes),
+            )
+        except Exception as e:
+            print(f"Failed to reset cycle timer: {e}")
 
 
 def _cycle_photo_job():
     """Job function called by scheduler"""
     print(f"[{datetime.now().isoformat()}] Cycling to next photo...")
-    show_next_photo()
+    show_next_photo(_from_scheduler=True)
 
 
 def start_slideshow():
